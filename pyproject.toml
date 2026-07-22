@@ -1,0 +1,10 @@
+[project]
+name = "computer-graphics-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "imgui-bundle>=1.92.801",
+    "slangpy>=0.42.0",
+]
