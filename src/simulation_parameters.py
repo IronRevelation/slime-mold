@@ -45,6 +45,8 @@ class SimulationParameters:
     turn_speed: float = slider(4.0, "Turn Speed", 0.5, 10.0, "%.1f")
     random_turn_amount: float = slider(0.3, "Random Turn", 0.0, 1.0, "%.2f")
     deposit_amount: float = slider(5.0, "Deposit Amount", 0.5, 20.0, "%.1f")
+    food_strength: float = slider(10.0, "Food Strength", 0.0, 100.0, "%.1f")
+    repellent_strength: float = slider(10.0, "Repellent Strength", 0.0, 100.0, "%.1f")
     decay_rate: float = slider(0.995, "Decay Rate", 0.90, 0.999, "%.3f")
     diffuse_rate: float = slider(0.6, "Diffuse Rate", 0.0, 1.0, "%.2f")
 

@@ -12,6 +12,8 @@ struct SimulationParameters
     float turn_speed;
     float random_turn_amount;
     float deposit_amount;
+    float food_strength;
+    float repellent_strength;
     float decay_rate;
     float diffuse_rate;
 };
@@ -23,6 +25,13 @@ uniform float g_delta_time;
 RWStructuredBuffer<float> g_agent_data;
 RWTexture2D<float> g_trail_a;
 RWTexture2D<float> g_trail_b;
+RWTexture2D<float> g_food;
+RWTexture2D<float> g_repellent;
+
+uniform float2 g_brush_start_position;
+uniform float2 g_brush_position;
+uniform float g_brush_radius;
+uniform uint g_brush_mode;
 
 [format("rgba16f")]
 RWTexture2D<float4> g_output;
@@ -48,6 +57,44 @@ float random_float_01(inout uint seed)
 bool is_even_frame()
 {
     return (g_frame % 2u) == 0u;
+}
+
+[shader("compute")]
+[numthreads(THREADS_2D, THREADS_2D, 1)]
+void paint_field(uint3 dispatch_thread_id: SV_DispatchThreadID)
+{
+    uint2 size;
+    g_food.GetDimensions(size.x, size.y);
+    uint2 pixel = dispatch_thread_id.xy;
+    if (any(pixel >= size))
+        return;
+
+    float2 pixel_center = float2(pixel) + 0.5;
+    float2 brush_segment = g_brush_position - g_brush_start_position;
+    float segment_length_squared = dot(brush_segment, brush_segment);
+    float segment_position = segment_length_squared > 0.0
+        ? saturate(
+            dot(pixel_center - g_brush_start_position, brush_segment)
+            / segment_length_squared
+        )
+        : 0.0;
+    float2 closest_brush_point =
+        g_brush_start_position + brush_segment * segment_position;
+    float distance_from_brush = distance(pixel_center, closest_brush_point);
+    if (distance_from_brush >= g_brush_radius)
+        return;
+
+    float falloff = saturate(1.0 - distance_from_brush / g_brush_radius);
+    if (g_brush_mode == 0u)
+    {
+        g_food[pixel] = max(g_food[pixel], falloff);
+        g_repellent[pixel] = 0.0;
+    }
+    else
+    {
+        g_repellent[pixel] = max(g_repellent[pixel], falloff);
+        g_food[pixel] = 0.0;
+    }
 }
 
 void diffuse_decay_body(
@@ -92,10 +139,24 @@ void diffuse_decay(uint3 dispatch_thread_id: SV_DispatchThreadID)
         diffuse_decay_body(g_trail_b, g_trail_a, pixel, size);
 }
 
-float sense_at(RWTexture2D<float> trail, float2 position, uint2 size)
+float sense_at(
+    RWTexture2D<float> trail,
+    float2 position,
+    uint2 size
+)
 {
     int2 pixel = clamp(int2(position), int2(0, 0), int2(size) - int2(1, 1));
-    return trail[pixel];
+    float food = g_food[pixel];
+    float repellent = g_repellent[pixel];
+
+    // Multiple agents can consume the same texel. As with trail deposits,
+    // non-atomic writes are sufficient for this lightweight visual demo.
+    g_food[pixel] = max(0.0, food - 0.01);
+    g_repellent[pixel] = max(0.0, repellent - 0.01);
+
+    return trail[pixel]
+        + food * g_params.food_strength
+        - repellent * g_params.repellent_strength;
 }
 
 float sense(
@@ -191,5 +252,7 @@ void render_image(uint3 dispatch_thread_id: SV_DispatchThreadID)
         float3(0.1, 0.9, 0.6),
         saturate(intensity)
     );
-    g_output[pixel] = float4(color, 1.0);
+    color += g_food[pixel] * float3(0.75, 0.65, 0.05);
+    color += g_repellent[pixel] * float3(0.85, 0.05, 0.35);
+    g_output[pixel] = float4(saturate(color), 1.0);
 }
