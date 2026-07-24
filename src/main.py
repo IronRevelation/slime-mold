@@ -33,12 +33,15 @@ class App:
 
         self.diffuse_kernel = self._load_kernel("diffuse_decay")
         self.update_agents_kernel = self._load_kernel("update_agents")
+        self.paint_kernel = self._load_kernel("paint_field")
         self.render_kernel = self._load_kernel("render_image")
 
         self.parameters = SimulationParameters()
         self.agent_data = None
         self.trail_a = None
         self.trail_b = None
+        self.food = None
+        self.repellent = None
         self.output_texture = None
         self.resource_signature = None
 
@@ -46,6 +49,12 @@ class App:
         self.reset_requested = True
         self.simulation_frame = 0
         self.fps_average = 0.0
+        self.brush_mode = "food"
+        self.brush_radius = 30.0
+        self.mouse_position = spy.float2(0.0, 0.0)
+        self.previous_brush_position = None
+        self.mouse_down = False
+        self.mouse_over_ui = False
 
         self.window.on_keyboard_event = self.on_keyboard_event
         self.window.on_mouse_event = self.on_mouse_event
@@ -61,12 +70,28 @@ class App:
         window = spy.ui.Window(
             self.ui.screen,
             "Settings",
-            size=spy.float2(320, 440),
+            size=spy.float2(320, 560),
         )
         self.fps_text = spy.ui.Text(window, "FPS: 0")
         spy.ui.Button(window, "Start", callback=self.start)
         spy.ui.Button(window, "Stop", callback=self.stop)
         spy.ui.Button(window, "Reset", callback=self.request_reset)
+        self.brush_text = spy.ui.Text(window, "Brush: Food")
+        spy.ui.Button(window, "Food Brush", callback=lambda: self.select_brush("food"))
+        spy.ui.Button(
+            window,
+            "Repellent Brush",
+            callback=lambda: self.select_brush("repellent"),
+        )
+        spy.ui.SliderFloat(
+            window,
+            "Brush Radius",
+            value=self.brush_radius,
+            min=5.0,
+            max=100.0,
+            format="%.0f px",
+            callback=self.set_brush_radius,
+        )
         self.parameters.create_ui(window, self.request_reset)
 
     def start(self) -> None:
@@ -77,6 +102,13 @@ class App:
 
     def request_reset(self) -> None:
         self.reset_requested = True
+
+    def select_brush(self, mode: str) -> None:
+        self.brush_mode = mode
+        self.brush_text.text = f"Brush: {mode.title()}"
+
+    def set_brush_radius(self, radius: float) -> None:
+        self.brush_radius = radius
 
     def create_simulation_resources(self, width: int, height: int) -> None:
         texture_usage = spy.TextureUsage.shader_resource | spy.TextureUsage.unordered_access
@@ -99,6 +131,20 @@ class App:
             usage=texture_usage,
             label="trail_b",
         )
+        self.food = self.device.create_texture(
+            format=spy.Format.r32_float,
+            width=width,
+            height=height,
+            usage=texture_usage,
+            label="food",
+        )
+        self.repellent = self.device.create_texture(
+            format=spy.Format.r32_float,
+            width=width,
+            height=height,
+            usage=texture_usage,
+            label="repellent",
+        )
         self.output_texture = self.device.create_texture(
             format=spy.Format.rgba16_float,
             width=width,
@@ -113,8 +159,30 @@ class App:
         command_encoder.clear_buffer(self.agent_data)
         command_encoder.clear_texture_float(self.trail_a)
         command_encoder.clear_texture_float(self.trail_b)
+        command_encoder.clear_texture_float(self.food)
+        command_encoder.clear_texture_float(self.repellent)
         self.simulation_frame = 0
         self.reset_requested = False
+
+    def dispatch_paint(self, command_encoder: spy.CommandEncoder) -> None:
+        brush_start = (
+            self.previous_brush_position
+            if self.previous_brush_position is not None
+            else self.mouse_position
+        )
+        self.paint_kernel.dispatch(
+            thread_count=[self.food.width, self.food.height, 1],
+            vars={
+                "g_food": self.food,
+                "g_repellent": self.repellent,
+                "g_brush_start_position": brush_start,
+                "g_brush_position": self.mouse_position,
+                "g_brush_radius": self.brush_radius,
+                "g_brush_mode": 0 if self.brush_mode == "food" else 1,
+            },
+            command_encoder=command_encoder,
+        )
+        self.previous_brush_position = self.mouse_position
 
     def dispatch_simulation(
         self,
@@ -139,6 +207,8 @@ class App:
                 **common_vars,
                 "g_delta_time": delta_time,
                 "g_agent_data": self.agent_data,
+                "g_food": self.food,
+                "g_repellent": self.repellent,
             },
             command_encoder=command_encoder,
         )
@@ -151,6 +221,8 @@ class App:
                 "g_frame": self.simulation_frame,
                 "g_trail_a": self.trail_a,
                 "g_trail_b": self.trail_b,
+                "g_food": self.food,
+                "g_repellent": self.repellent,
                 "g_output": self.output_texture,
             },
             command_encoder=command_encoder,
@@ -160,7 +232,29 @@ class App:
         self.ui.handle_keyboard_event(event)
 
     def on_mouse_event(self, event: spy.MouseEvent) -> None:
-        self.ui.handle_mouse_event(event)
+        consumed_by_ui = self.ui.handle_mouse_event(event)
+
+        if event.type in (
+            spy.MouseEventType.move,
+            spy.MouseEventType.button_down,
+            spy.MouseEventType.button_up,
+        ):
+            self.mouse_position = spy.float2(float(event.pos.x), float(event.pos.y))
+            self.mouse_over_ui = consumed_by_ui
+            if consumed_by_ui:
+                self.previous_brush_position = None
+
+        if event.type == spy.MouseEventType.button_up:
+            if event.button == spy.MouseButton.left:
+                self.mouse_down = False
+                self.previous_brush_position = None
+        elif (
+            event.type == spy.MouseEventType.button_down
+            and event.button == spy.MouseButton.left
+            and not consumed_by_ui
+        ):
+            self.mouse_down = True
+            self.previous_brush_position = self.mouse_position
 
     def on_resize(self, width: int, height: int) -> None:
         self.device.wait()
@@ -208,6 +302,8 @@ class App:
             command_encoder = self.device.create_command_encoder()
             if self.reset_requested:
                 self.reset_simulation(command_encoder)
+            if self.mouse_down and not self.mouse_over_ui:
+                self.dispatch_paint(command_encoder)
             if self.playing:
                 self.dispatch_simulation(command_encoder, delta_time)
             self.dispatch_render(command_encoder)
