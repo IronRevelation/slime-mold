@@ -183,7 +183,7 @@ float sense_at(
     float otherspecies = 0;
 
     // Repultion between species: 
-    for (i = 0; i < SPECIES_COUNT; i++)sense
+    for (i = 0; i < SPECIES_COUNT; i++)
     {
         if (i != species_index)
             otherspecies += trail[uint3(pixel, i)];
@@ -196,7 +196,7 @@ float sense_at(
 
 }
 
-float (
+float sense(
     RWTexture2DArray<float> trail,
     float2 position,
     float angle,
