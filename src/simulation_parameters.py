@@ -38,7 +38,7 @@ def slider(
 
 @dataclass
 class SimulationParameters:
-    agent_count: int = slider(4096, "Agent Count", 256, 32768, "%d", requires_reset=True)
+    agent_count: int = slider(1024, "Agent Count", 32, 32768, "%d", requires_reset=True)
     agent_speed: float = slider(60.0, "Agent Speed", 10.0, 200.0, "%.1f")
     sensor_angle: float = slider(0.4, "Sensor Angle", 0.05, 1.2, "%.2f")
     sensor_distance: float = slider(12.0, "Sensor Distance", 2.0, 40.0, "%.1f")
@@ -49,6 +49,7 @@ class SimulationParameters:
     repellent_strength: float = slider(10.0, "Repellent Strength", 0.0, 100.0, "%.1f")
     decay_rate: float = slider(0.995, "Decay Rate", 0.90, 0.999, "%.3f")
     diffuse_rate: float = slider(0.6, "Diffuse Rate", 0.0, 1.0, "%.2f")
+    species_repellent: float = slider(10.0, "Species Repellent", 0.0, 100.0, "%.2f")
 
     def create_ui(self, parent: spy.ui.Widget, reset_callback: Callable[[], None]) -> None:
         for parameter in fields(self):

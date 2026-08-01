@@ -1,15 +1,15 @@
-# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
 from pathlib import Path
-
 import slangpy as spy
-
 from simulation_parameters import SimulationParameters
-
 
 SHADER_DIR = Path(__file__).parent / "shaders"
 MAX_DELTA_TIME = 0.05
 
+# Number of species
+SPECIES_COUNT = 3
+
+# Every agent is characterized by 4 parameters: x position, y position, angle, species
+N_PARAMS_PER_AGENT = 4
 
 class App:
     def __init__(self):
@@ -112,25 +112,34 @@ class App:
 
     def create_simulation_resources(self, width: int, height: int) -> None:
         texture_usage = spy.TextureUsage.shader_resource | spy.TextureUsage.unordered_access
+
         self.agent_data = self.device.create_buffer(
-            size=self.parameters.agent_count * 3 * 4,
+            size=self.parameters.agent_count * N_PARAMS_PER_AGENT * 4,
             usage=spy.BufferUsage.shader_resource | spy.BufferUsage.unordered_access,
             label="agent_data",
         )
+
+        #trails are 2D textures with a layer per species
         self.trail_a = self.device.create_texture(
+            type=spy.TextureType.texture_2d_array,
             format=spy.Format.r32_float,
             width=width,
             height=height,
+            array_length=SPECIES_COUNT,
             usage=texture_usage,
             label="trail_a",
         )
         self.trail_b = self.device.create_texture(
+            type=spy.TextureType.texture_2d_array,
             format=spy.Format.r32_float,
             width=width,
             height=height,
+            array_length=SPECIES_COUNT,
             usage=texture_usage,
             label="trail_b",
         )
+
+        # Food and repellent are simple 2D texture, shared by all species
         self.food = self.device.create_texture(
             format=spy.Format.r32_float,
             width=width,
@@ -190,6 +199,9 @@ class App:
         delta_time: float,
     ) -> None:
         shader_parameters = self.parameters.shader_values()
+        # Invariato: i nomi ("g_trail_a", "g_trail_b") restano gli stessi,
+        # slangpy passa semplicemente l'oggetto texture (ora array) allo
+        # stesso identico modo con cui passava la texture 2D prima.
         common_vars = {
             "g_params": shader_parameters,
             "g_frame": self.simulation_frame,
