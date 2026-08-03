@@ -5,6 +5,7 @@
 
 // Number of species and their colors
 #define SPECIES_COUNT 3
+#define RIGID_WALLS 1
 
 /*
 INIT_MODE = 1 --> All species are initialized at random positions
@@ -15,12 +16,12 @@ INIT_MODE = 3 --> Every specie is initialized in a circle in the (up to 4) corne
 
 // List of colors: 10 species maximum are allowed
 static const float3 species_colors[10] = {
-    float3(0.10, 0.90, 0.60),
+    float3(0.00, 1.0, 0.00),
     float3(1.00, 0.00, 0.00),
+    float3(0.00, 0.0, 1.0),
     float3(0.80, 0.20, 1.00),
-    float3(1.00, 0.00, 1.00),
+    float3(0.10, 1.00, 0.00),
     float3(0.20, 0.40, 1.00),
-    float3(0.80, 1.00, 0.00),
     float3(1.00, 0.50, 0.00),
     float3(0.00, 1.00, 1.00),
     float3(1.00, 1.00, 1.00),
@@ -198,7 +199,7 @@ void diffuse_decay(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
 float sense_at(RWTexture2DArray<float> trail,float2 position,uint2 size,uint species_index)
 {
-    int sensor_size = 2;
+    int sensor_size = 3;
     int2 center = clamp(int2(position), int2(0, 0), int2(size) - int2(1, 1));
     float food = g_food[center];
     float repellent = g_repellent[center];
@@ -336,9 +337,35 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
 
     position += direction * g_params.agent_speed * g_delta_time;
 
+#if RIGID_WALLS == 1
+    if (position.x < 0.0)
+    {
+        position.x = 0.0;
+        direction.x = -direction.x;
+    }
+    else if (position.x >= float(size.x))
+    {
+        position.x = float(size.x) - 1.0;
+        direction.x = -direction.x;
+    }
+
+    if (position.y < 0.0)
+    {
+        position.y = 0.0;
+        direction.y = -direction.y;
+    }
+    else if (position.y >= float(size.y))
+    {
+        position.y = float(size.y) - 1.0;
+        direction.y = -direction.y;
+    }
+
+    angle = atan2(direction.y, direction.x);
+#else
     // Wrap around
     position.x = fmod(position.x + float(size.x), float(size.x));
     position.y = fmod(position.y + float(size.y), float(size.y));
+#endif
 
     // Write the new information in the agent buffer
     g_agent_data[id * N_PARAMS_PER_AGENT + 0] = position.x;
@@ -349,8 +376,8 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     // Position is discretized into pixels
     uint3 pixel = uint3(uint(position.x), uint(position.y), species_index);
     
-    //trail[pixel] = trail[pixel] + g_params.deposit_amount;
-    trail[pixel] = min(1.0, trail[pixel] + g_params.deposit_amount);
+    trail[pixel] = trail[pixel] + g_params.deposit_amount;
+    //trail[pixel] = min(1.0, trail[pixel] + g_params.deposit_amount);
 }
 
 [shader("compute")]

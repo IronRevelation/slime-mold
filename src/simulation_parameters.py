@@ -36,13 +36,13 @@ def slider(
 
 @dataclass
 class SimulationParameters:
-    agent_count: int = slider(10000, "Agent Count", 256, 100000, "%d", requires_reset=True)
-    agent_speed: float = slider(100.0, "Agent Speed", 10.0, 200.0, "%.1f")
+    agent_count: int = slider(50000, "Agent Count", 256, 100000, "%d", requires_reset=True)
+    agent_speed: float = slider(80.0, "Agent Speed", 10.0, 150.0, "%.1f")
     sensor_angle: float = slider(0.95, "Sensor Angle", 0.05, 1.2, "%.2f")
     sensor_distance: float = slider(10.0, "Sensor Distance", 2.0, 100.0, "%.1f")
     turn_speed: float = slider(7.5, "Turn Speed", 0.5, 10.0, "%.1f")
-    random_turn_amount: float = slider(1.0, "Random Turn", 0.0, 1.0, "%.2f")
-    deposit_amount: float = slider(5.0, "Deposit Amount", 1, 20.0, "%.1f")
+    random_turn_amount: float = slider(0.1, "Random Turn", 0.0, 1.0, "%.2f")
+    deposit_amount: float = slider(20.0, "Deposit Amount", 1, 20.0, "%.1f")
     food_strength: float = slider(10.0, "Food Strength", 0.0, 100.0, "%.1f")
     repellent_strength: float = slider(10.0, "Repellent Strength", 0.0, 100.0, "%.1f")
     decay_rate: float = slider(0.95, "Decay Rate", 0.80, 0.999, "%.3f")
