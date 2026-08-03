@@ -67,7 +67,5 @@ https://github.com/user-attachments/assets/37613107-8fa0-4743-b19f-84bbf903a65a
 
 ### Two species - random initialization
 
-https://github.com/user-attachments/assets/83aad268-88b4-4147-bf73-610b1c9e0725
-
-
+https://github.com/user-attachments/assets/097b3abd-2531-44fb-bd8a-349ce9127f3e
 
