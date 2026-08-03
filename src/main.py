@@ -14,7 +14,7 @@ N_PARAMS_PER_AGENT = 4
 class App:
     def __init__(self):
         self.window = spy.Window(
-            width=1200,
+            width=1280,
             height=720,
             title="Slime mold simulation",
             resizable=True,
@@ -73,6 +73,8 @@ class App:
             size=spy.float2(320, 560),
         )
         self.fps_text = spy.ui.Text(window, "FPS: 0")
+
+        # == Buttons ==
         spy.ui.Button(window, "Start", callback=self.start)
         spy.ui.Button(window, "Stop", callback=self.stop)
         spy.ui.Button(window, "Reset", callback=self.request_reset)
@@ -83,6 +85,9 @@ class App:
             "Repellent Brush",
             callback=lambda: self.select_brush("repellent"),
         )
+        # =============
+
+        # == Sliders ==
         spy.ui.SliderFloat(
             window,
             "Brush Radius",
@@ -93,6 +98,7 @@ class App:
             callback=self.set_brush_radius,
         )
         self.parameters.create_ui(window, self.request_reset)
+        # == Buttons ==
 
     def start(self) -> None:
         self.playing = True
