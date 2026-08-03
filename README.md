@@ -62,7 +62,8 @@ because those changes require new GPU resources.
 ## Examples
 ### Single species
 
-https://github.com/user-attachments/assets/6ffd84c8-e846-453c-93a3-d6c8e920a4d4
+https://github.com/user-attachments/assets/37613107-8fa0-4743-b19f-84bbf903a65a
+
 
 ### Two species - random initialization
 
