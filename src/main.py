@@ -6,7 +6,7 @@ SHADER_DIR = Path(__file__).parent / "shaders"
 MAX_DELTA_TIME = 0.05
 
 # Number of species
-SPECIES_COUNT = 3
+SPECIES_COUNT = 1
 
 # Every agent is characterized by 4 parameters: x position, y position, angle, species
 N_PARAMS_PER_AGENT = 4
@@ -50,7 +50,7 @@ class App:
         self.simulation_frame = 0
         self.fps_average = 0.0
         self.brush_mode = "food"
-        self.brush_radius = 30.0
+        self.brush_radius = 5.0
         self.mouse_position = spy.float2(0.0, 0.0)
         self.previous_brush_position = None
         self.mouse_down = False
@@ -92,8 +92,8 @@ class App:
             window,
             "Brush Radius",
             value=self.brush_radius,
-            min=5.0,
-            max=100.0,
+            min=1.0,
+            max=10.0,
             format="%.0f px",
             callback=self.set_brush_radius,
         )

@@ -4,7 +4,7 @@
 #define N_PARAMS_PER_AGENT 4
 
 // Number of species and their colors
-#define SPECIES_COUNT 3
+#define SPECIES_COUNT 1
 #define RIGID_WALLS 1
 
 /*
@@ -169,7 +169,7 @@ void diffuse_decay_body(
     float diffused = lerp(source[uint3(pixel, species_index)], blurred, g_params.diffuse_rate);
     destination[uint3(pixel, species_index)] = diffused * g_params.decay_rate;
 
-    //float diffused = lerp(source[uint3(pixel, species_index)], blurred, g_params.diffuse_rate);
+    
     //destination[uint3(pixel, species_index)] = max(0.0, diffused - g_params.decay_rate * g_delta_time);
 }
 
@@ -228,7 +228,10 @@ float sense_at(RWTexture2DArray<float> trail,float2 position,uint2 size,uint spe
         }
     }
 
-    return species_sum + food * g_params.food_strength - repellent * g_params.repellent_strength;
+    float sample_count = float((2 * sensor_size + 1) * (2 * sensor_size + 1));
+    return (species_sum / sample_count) + food * g_params.food_strength - repellent * g_params.repellent_strength;
+
+    //return species_sum + food * g_params.food_strength - repellent * g_params.repellent_strength;
 }
 
 float sense(RWTexture2DArray<float> trail,
@@ -376,8 +379,8 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     // Position is discretized into pixels
     uint3 pixel = uint3(uint(position.x), uint(position.y), species_index);
     
-    trail[pixel] = trail[pixel] + g_params.deposit_amount;
-    //trail[pixel] = min(1.0, trail[pixel] + g_params.deposit_amount);
+    //trail[pixel] = trail[pixel] + g_params.deposit_amount;
+    trail[pixel] = min(1.0, trail[pixel] + g_params.deposit_amount);
 }
 
 [shader("compute")]

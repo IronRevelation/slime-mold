@@ -19,8 +19,6 @@ In ```slime_molg.slang``` it is possible to set the following constants to chang
   * If '3', agents belonging to the same species are initialized in a cirlce, each placed in a dedicated location.
 
 
-
-
 ## Painting
 
 Use **Food Brush** or **Repellent Brush** in the settings window, then hold and
@@ -60,3 +58,8 @@ Reset clears the trails and painted fields, and respawns agents without changing
 slider values.
 Changing **Agent Count** or resizing the window also resets the simulation,
 because those changes require new GPU resources.
+
+## Examples
+### Single species
+
+<video src="readme_media/single_species_example.mp4" width="1280" height="720" controls></video>
