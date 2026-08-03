@@ -62,4 +62,11 @@ because those changes require new GPU resources.
 ## Examples
 ### Single species
 
-<video src="readme_media/single_species_example.mp4" width="1280" height="720" controls></video>
+https://github.com/user-attachments/assets/6ffd84c8-e846-453c-93a3-d6c8e920a4d4
+
+### Two species - random initialization
+
+https://github.com/user-attachments/assets/83aad268-88b4-4147-bf73-610b1c9e0725
+
+
+
