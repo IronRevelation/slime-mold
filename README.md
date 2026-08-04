@@ -69,3 +69,9 @@ https://github.com/user-attachments/assets/37613107-8fa0-4743-b19f-84bbf903a65a
 
 https://github.com/user-attachments/assets/097b3abd-2531-44fb-bd8a-349ce9127f3e
 
+
+### Five species - dedicated initialization
+
+https://github.com/user-attachments/assets/82c7e545-062c-40a1-888d-e59cc3160973
+
+
