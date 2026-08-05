@@ -6,7 +6,7 @@ SHADER_DIR = Path(__file__).parent / "shaders"
 MAX_DELTA_TIME = 0.05
 
 # Number of species
-SPECIES_COUNT = 1
+SPECIES_COUNT = 2
 
 # Every agent is characterized by 4 parameters: x position, y position, angle, species
 N_PARAMS_PER_AGENT = 4

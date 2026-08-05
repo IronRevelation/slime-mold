@@ -46,18 +46,6 @@ uv run src/main.py
   UI sliders and shader parameter dictionary.
 - `src/shaders/slime_mold.slang` contains the simulation and rendering kernels.
 
-## Add a parameter
-
-1. Add a typed field with `slider(...)` metadata to `SimulationParameters`.
-2. Add the same field to the shader's `SimulationParameters` struct and use it.
-
-The Python declaration supplies the default, label, range, format, UI control,
-and shader binding automatically.
-
-Reset clears the trails and painted fields, and respawns agents without changing
-slider values.
-Changing **Agent Count** or resizing the window also resets the simulation,
-because those changes require new GPU resources.
 
 ## Examples
 ### Single species

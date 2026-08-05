@@ -4,7 +4,7 @@
 #define N_PARAMS_PER_AGENT 4
 
 // Number of species and their colors
-#define SPECIES_COUNT 1
+#define SPECIES_COUNT 2
 #define RIGID_WALLS 1
 
 /*
@@ -379,8 +379,8 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     // Position is discretized into pixels
     uint3 pixel = uint3(uint(position.x), uint(position.y), species_index);
     
-    //trail[pixel] = trail[pixel] + g_params.deposit_amount;
-    trail[pixel] = min(1.0, trail[pixel] + g_params.deposit_amount);
+    trail[pixel] = trail[pixel] + g_params.deposit_amount;
+    //trail[pixel] = min(1.0, trail[pixel] + g_params.deposit_amount);
 }
 
 [shader("compute")]
