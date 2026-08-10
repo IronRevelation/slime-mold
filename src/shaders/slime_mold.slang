@@ -4,7 +4,7 @@
 #define N_PARAMS_PER_AGENT 4
 
 // Number of species and their colors
-#define SPECIES_COUNT 2
+#define SPECIES_COUNT 4
 #define RIGID_WALLS 1
 
 /*
@@ -12,7 +12,7 @@ INIT_MODE = 1 --> All species are initialized at random positions
 INIT_MODE = 2 --> All species are initialized in a circle at the center of the windows
 INIT_MODE = 3 --> Every specie is initialized in a circle in the (up to 4) corners of the window
 */
-#define INIT_MODE 2
+#define INIT_MODE 3
 
 // List of colors: 10 species maximum are allowed
 static const float3 species_colors[10] = {
@@ -57,6 +57,9 @@ RWStructuredBuffer<float> g_agent_data;
 RWTexture2D<float> g_food;
 RWTexture2D<float> g_repellent;
 
+// Walls (Binary mask with only two values: 0.0 or 1.0)
+RWTexture2D<float> g_walls;
+
 uniform float2 g_brush_start_position;
 uniform float2 g_brush_position;
 uniform float g_brush_radius;
@@ -86,6 +89,13 @@ float random_float_01(inout uint seed)
 bool is_even_frame()
 {
     return (g_frame % 2u) == 0u;
+}
+
+bool is_wall(int2 pixel, uint2 size)
+{
+    // This method takes the position of a pixel an returns True is there is a wall in such a position
+    pixel = clamp(pixel, int2(0, 0), int2(size) - int2(1, 1));
+    return g_walls[pixel] > 0.5;
 }
 
 [shader("compute")]
@@ -253,62 +263,75 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     float y = g_agent_data[id * N_PARAMS_PER_AGENT + 1];
     float angle = g_agent_data[id * N_PARAMS_PER_AGENT + 2];
 
+    uint initial_seed = id * 217519u;
+    
+    
     if (g_frame == 0u)
     {
-        uint initial_seed = id * 217519u;
-        uint initial_seed_2 = initial_seed + 1u;
-        float2 center = float2(size) * 0.5; // Coordinates of the frame center
-
-    // Every agent is initialized in a random position, regardless of the species
-    #if INIT_MODE == 1
-        x = random_float_01(initial_seed) * float(size.x);
-        y = random_float_01(initial_seed) * float(size.y);
-        angle = random_float_01(initial_seed) * 6.2831853;
-    // Every agent is initialized in a circle in the center of the frame, regardless of the specie it belongs to
-    #elif INIT_MODE == 2
-        float spawn_angle = random_float_01(initial_seed) * 6.2831853;
-        float spawn_radius = sqrt(random_float_01(initial_seed_2)) * 350;
-        float2 offset = float2(cos(spawn_angle), sin(spawn_angle)) * spawn_radius;
-        x = center.x + offset.x;
-        y = center.y + offset.y;
-    // Every agent (up to 4th) is initialized in a circle in one of the 4 quarters of the frame
-    #else
-        float spawn_angle = random_float_01(initial_seed) * 6.2831853;
-        float spawn_radius = sqrt(random_float_01(initial_seed_2)) * 150;
-        float2 offset = float2(cos(spawn_angle), sin(spawn_angle)) * spawn_radius;
-        float2 quarter = float2(size) * 0.25;
-        float2 blob_center;
-
-        switch (int(species))
+        // If an agent is initialized in the same position of a wall, simply try a new initialization with a different seed
+        int spawn_is_wall = 1;
+        while (spawn_is_wall > 0)
         {
-        case 0:
-            blob_center.x = center.x + quarter.x;
-            blob_center.y = center.y + quarter.y;
-            break;
-        case 1:
-            blob_center.x = center.x - quarter.x;
-            blob_center.y = center.y - quarter.y;
-            break;
-        case 2:
-            blob_center.x = center.x + quarter.x;
-            blob_center.y = center.y - quarter.y;
-            break;
-        case 3:
-            blob_center.x = center.x - quarter.x;
-            blob_center.y = center.y + quarter.y;
-            break;
-        default:
-            blob_center.x = center.x;
-            blob_center.y = center.y;
-            break;
-        }
-        x = blob_center.x + offset.x;
-        y = blob_center.y + offset.y;
-    #endif
+            float2 center = float2(size) * 0.5; // Coordinates of the frame center
+            initial_seed += spawn_is_wall;
+            uint initial_seed_2 = initial_seed + 1u;
+        // Every agent is initialized in a random position, regardless of the species
+        #if INIT_MODE == 1
+            x = random_float_01(initial_seed) * float(size.x);
+            y = random_float_01(initial_seed) * float(size.y);
+            angle = random_float_01(initial_seed) * 6.2831853;
+        // Every agent is initialized in a circle in the center of the frame, regardless of the specie it belongs to
+        #elif INIT_MODE == 2
+            float spawn_angle = random_float_01(initial_seed) * 6.2831853;
+            float spawn_radius = sqrt(random_float_01(initial_seed_2)) * 350;
+            float2 offset = float2(cos(spawn_angle), sin(spawn_angle)) * spawn_radius;
+            x = center.x + offset.x;
+            y = center.y + offset.y;
+        // Every agent (up to 4th) is initialized in a circle in one of the 4 quarters of the frame
+        #else
+            float spawn_angle = random_float_01(initial_seed) * 6.2831853;
+            float spawn_radius = sqrt(random_float_01(initial_seed_2)) * 100;
+            float2 offset = float2(cos(spawn_angle), sin(spawn_angle)) * spawn_radius;
+            float2 quarter = float2(size) * 0.25;
+            float2 blob_center;
 
-        // Initial angle
-        float2 initial_direction = normalize(center - float2(x, y));
-        angle = atan2(initial_direction.y, initial_direction.x);
+            switch (int(species))
+            {
+            case 0:
+                blob_center.x = center.x + quarter.x;
+                blob_center.y = center.y + quarter.y;
+                break;
+            case 1:
+                blob_center.x = center.x - quarter.x;
+                blob_center.y = center.y - quarter.y;
+                break;
+            case 2:
+                blob_center.x = center.x + quarter.x;
+                blob_center.y = center.y - quarter.y;
+                break;
+            case 3:
+                blob_center.x = center.x - quarter.x;
+                blob_center.y = center.y + quarter.y;
+                break;
+            default:
+                blob_center.x = center.x;
+                blob_center.y = center.y;
+                break;
+            }
+            x = blob_center.x + offset.x;
+            y = blob_center.y + offset.y;
+        #endif
+
+            // Check if the "randomly" computed position coincides with the position of a wall
+            if (is_wall(int2(int(x), int(y)), size))
+                spawn_is_wall++;
+            else
+                spawn_is_wall = 0;
+
+            // Initial angle
+            float2 initial_direction = normalize(center - float2(x, y));
+            angle = atan2(initial_direction.y, initial_direction.x);
+        }
     }
 
     uint species_index = uint(species);
@@ -338,7 +361,37 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     angle += (steering * g_params.turn_speed + random_turn) * g_delta_time;
     float2 direction = float2(cos(angle), sin(angle));
 
-    position += direction * g_params.agent_speed * g_delta_time;
+    
+    float2 step = direction * g_params.agent_speed * g_delta_time;
+    float2 old_position = position;
+    float2 new_position = position + step;
+
+    // Testing the collitions for the two axis
+    // Test if, maintaining the y-level constant, the collision have occurred anyway
+    bool blocked_x = is_wall(int2(int(new_position.x), int(old_position.y)), size);
+    // Test if, maintaining the x-level constant, the collision have occurred anyway
+    bool blocked_y = is_wall(int2(int(old_position.x), int(new_position.y)), size);
+
+    // If an agent hits a wall, invert the direction component that caused the collision
+    if (blocked_x)
+    {
+        direction.x = -direction.x;
+        position.x = position.x;
+    }
+    else
+        position.x = new_position.x;
+
+    if (blocked_y)
+    {
+        direction.y = -direction.y;
+        position.y = old_position.y;
+    }
+    else
+        position.y = new_position.y;
+
+    if (blocked_x || blocked_y)
+        angle = atan2(direction.y, direction.x);
+    
 
 #if RIGID_WALLS == 1
     if (position.x < 0.0)
@@ -446,6 +499,9 @@ void render_image(uint3 dispatch_thread_id: SV_DispatchThreadID)
     // Accumulate food and repellent
     color += g_food[pixel] * float3(0.75, 0.65, 0.05);
     color += g_repellent[pixel] * float3(0.85, 0.05, 0.35);
+
+    // Visualize walls in grey
+    color += g_walls[pixel] * float3(0.3, 0.3, 0.3);
 
     // Clipping RGB values to 1.0 and setting opacity to 100%
     g_output[pixel] = float4(saturate(color), 1.0);

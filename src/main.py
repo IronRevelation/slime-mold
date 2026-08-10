@@ -1,12 +1,13 @@
 from pathlib import Path
 import slangpy as spy
 from simulation_parameters import SimulationParameters
+from wall_generator import *
 
 SHADER_DIR = Path(__file__).parent / "shaders"
 MAX_DELTA_TIME = 0.05
 
 # Number of species
-SPECIES_COUNT = 2
+SPECIES_COUNT = 4
 
 # Every agent is characterized by 4 parameters: x position, y position, angle, species
 N_PARAMS_PER_AGENT = 4
@@ -17,7 +18,7 @@ class App:
             width=1280,
             height=720,
             title="Slime mold simulation",
-            resizable=True,
+            resizable=False,
         )
         self.device = spy.Device(
             enable_debug_layers=True,
@@ -44,6 +45,7 @@ class App:
         self.repellent = None
         self.output_texture = None
         self.resource_signature = None
+        self.walls = None
 
         self.playing = True
         self.reset_requested = True
@@ -160,6 +162,20 @@ class App:
             usage=texture_usage,
             label="repellent",
         )
+
+        # Creation of the walls
+        walls_matrix = create_walls(height=height, width=width, thickness=2)
+        
+        self.walls = self.device.create_texture(
+            format=spy.Format.r32_float,
+            width=width,
+            height=height,
+            usage=texture_usage,
+            label="walls",
+            data=walls_matrix # Walls are initialized before in the main, before the simulation launch
+        )
+
+        #print(walls_matrix.shape)
         self.output_texture = self.device.create_texture(
             format=spy.Format.rgba16_float,
             width=width,
@@ -194,6 +210,7 @@ class App:
                 "g_brush_position": self.mouse_position,
                 "g_brush_radius": self.brush_radius,
                 "g_brush_mode": 0 if self.brush_mode == "food" else 1,
+                "g_walls": self.walls 
             },
             command_encoder=command_encoder,
         )
@@ -227,6 +244,7 @@ class App:
                 "g_agent_data": self.agent_data,
                 "g_food": self.food,
                 "g_repellent": self.repellent,
+                "g_walls": self.walls,
             },
             command_encoder=command_encoder,
         )
@@ -242,6 +260,7 @@ class App:
                 "g_food": self.food,
                 "g_repellent": self.repellent,
                 "g_output": self.output_texture,
+                "g_walls": self.walls,
             },
             command_encoder=command_encoder,
         )
