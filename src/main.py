@@ -2,12 +2,16 @@ from pathlib import Path
 import slangpy as spy
 from simulation_parameters import SimulationParameters
 from wall_generator import *
+from init_position_generator import *
 
 SHADER_DIR = Path(__file__).parent / "shaders"
 MAX_DELTA_TIME = 0.05
 
 # Number of species
-SPECIES_COUNT = 4
+SPECIES_COUNT = 2
+
+LOAD_WALLS = True
+CUSTOM_SPAWN = True
 
 # Every agent is characterized by 4 parameters: x position, y position, angle, species
 N_PARAMS_PER_AGENT = 4
@@ -46,6 +50,8 @@ class App:
         self.output_texture = None
         self.resource_signature = None
         self.walls = None
+        self.spawn_points = None
+        self.spawn_points_count = None
 
         self.playing = True
         self.reset_requested = True
@@ -80,6 +86,7 @@ class App:
         spy.ui.Button(window, "Start", callback=self.start)
         spy.ui.Button(window, "Stop", callback=self.stop)
         spy.ui.Button(window, "Reset", callback=self.request_reset)
+        
         self.brush_text = spy.ui.Text(window, "Brush: Food")
         spy.ui.Button(window, "Food Brush", callback=lambda: self.select_brush("food"))
         spy.ui.Button(
@@ -99,8 +106,14 @@ class App:
             format="%.0f px",
             callback=self.set_brush_radius,
         )
-        self.parameters.create_ui(window, self.request_reset)
-        # == Buttons ==
+
+        # If CUSTOM_SPAWN is active, do no show the agent_count slider
+        skip = {}
+        if CUSTOM_SPAWN:
+            skip = {"agent_count"}
+
+        self.parameters.create_ui(window, self.request_reset, skip_fields=skip)
+
 
     def start(self) -> None:
         self.playing = True
@@ -121,12 +134,21 @@ class App:
     def create_simulation_resources(self, width: int, height: int) -> None:
         texture_usage = spy.TextureUsage.shader_resource | spy.TextureUsage.unordered_access
 
+        # Compute the initial spawn configuration if CUSTOM_SPAWN is active
+        if CUSTOM_SPAWN:
+            init_agent_position = get_spawn_structure(height=height, width=width)
+            self.spawn_points_count = len(init_agent_position)
+            self.parameters.agent_count = self.spawn_points_count
+        else:
+            self.spawn_points_count = 0
+            init_agent_position = np.zeros(1, dtype=np.float32)
+
         self.agent_data = self.device.create_buffer(
             size=self.parameters.agent_count * N_PARAMS_PER_AGENT * 4,
             usage=spy.BufferUsage.shader_resource | spy.BufferUsage.unordered_access,
             label="agent_data",
         )
-
+      
         #trails are 2D textures with a layer per species
         self.trail_a = self.device.create_texture(
             type=spy.TextureType.texture_2d_array,
@@ -164,7 +186,20 @@ class App:
         )
 
         # Creation of the walls
-        walls_matrix = create_walls(height=height, width=width, thickness=2)
+        if LOAD_WALLS:
+            walls_matrix = create_walls(height=height, width=width, thickness=2)
+        else:
+            walls_matrix = np.zeros((height,width))
+
+        # Get initial custom positions
+        if CUSTOM_SPAWN:
+            init_agent_position = get_spawn_structure(height=height, width=width)
+            self.spawn_points_count = len(init_agent_position)
+            init_agent_position = np.array(init_agent_position, dtype=np.float32).flatten()
+        else:
+            self.spawn_points_count = 0
+            init_agent_position = np.zeros(1, dtype=np.float32)
+
         
         self.walls = self.device.create_texture(
             format=spy.Format.r32_float,
@@ -175,7 +210,13 @@ class App:
             data=walls_matrix # Walls are initialized before in the main, before the simulation launch
         )
 
-        #print(walls_matrix.shape)
+        self.spawn_points = self.device.create_buffer(
+            size=self.spawn_points_count * N_PARAMS_PER_AGENT * 4,
+            usage=spy.BufferUsage.shader_resource | spy.BufferUsage.unordered_access,
+            label="spawn_points",
+            data=init_agent_position
+        )
+        
         self.output_texture = self.device.create_texture(
             format=spy.Format.rgba16_float,
             width=width,
@@ -230,6 +271,8 @@ class App:
             "g_frame": self.simulation_frame,
             "g_trail_a": self.trail_a,
             "g_trail_b": self.trail_b,
+            "g_spawn_points": self.spawn_points,
+            "g_spawn_point_count": self.spawn_points_count,
         }
         self.diffuse_kernel.dispatch(
             thread_count=[self.trail_a.width, self.trail_a.height, 1],

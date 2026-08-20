@@ -4,15 +4,15 @@
 #define N_PARAMS_PER_AGENT 4
 
 // Number of species and their colors
-#define SPECIES_COUNT 4
-#define RIGID_WALLS 1
+#define SPECIES_COUNT 2
 
 /*
 INIT_MODE = 1 --> All species are initialized at random positions
 INIT_MODE = 2 --> All species are initialized in a circle at the center of the windows
 INIT_MODE = 3 --> Every specie is initialized in a circle in the (up to 4) corners of the window
+INIT_MODE = 4 --> Custom initialization passed by the main
 */
-#define INIT_MODE 3
+#define INIT_MODE 4
 
 // List of colors: 10 species maximum are allowed
 static const float3 species_colors[10] = {
@@ -54,6 +54,10 @@ RWTexture2DArray<float> g_trail_a;
 RWTexture2DArray<float> g_trail_b;
 
 RWStructuredBuffer<float> g_agent_data;
+
+RWStructuredBuffer<float> g_spawn_points;
+uniform uint g_spawn_point_count;
+
 RWTexture2D<float> g_food;
 RWTexture2D<float> g_repellent;
 
@@ -174,8 +178,6 @@ void diffuse_decay_body(
 
     // Average value within the 3x3 window analyzed
     float blurred = sum / 9.0;
-
-
     float diffused = lerp(source[uint3(pixel, species_index)], blurred, g_params.diffuse_rate);
     destination[uint3(pixel, species_index)] = diffused * g_params.decay_rate;
 
@@ -268,9 +270,11 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     
     if (g_frame == 0u)
     {
+        uint attempt = 0u;
+        const uint MAX_ATTEMPTS = 50u;
         // If an agent is initialized in the same position of a wall, simply try a new initialization with a different seed
         int spawn_is_wall = 1;
-        while (spawn_is_wall > 0)
+        while (spawn_is_wall > 0 && attempt < MAX_ATTEMPTS)
         {
             float2 center = float2(size) * 0.5; // Coordinates of the frame center
             initial_seed += spawn_is_wall;
@@ -288,7 +292,7 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
             x = center.x + offset.x;
             y = center.y + offset.y;
         // Every agent (up to 4th) is initialized in a circle in one of the 4 quarters of the frame
-        #else
+        #elif INIT_MODE == 3
             float spawn_angle = random_float_01(initial_seed) * 6.2831853;
             float spawn_radius = sqrt(random_float_01(initial_seed_2)) * 100;
             float2 offset = float2(cos(spawn_angle), sin(spawn_angle)) * spawn_radius;
@@ -320,18 +324,42 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
             }
             x = blob_center.x + offset.x;
             y = blob_center.y + offset.y;
+
+        // Custom initialization
+        #else
+            x = g_spawn_points[id * N_PARAMS_PER_AGENT + 0];
+            y = g_spawn_points[id * N_PARAMS_PER_AGENT + 1];
+            angle = g_spawn_points[id * N_PARAMS_PER_AGENT + 2];
+            if (is_wall(int2(int(x), int(y)), size))
+            {
+                species = -1.0;    // marchio "agente morto"
+                spawn_is_wall = 0; // esce comunque dal while, non serve più ritentare
+            }
+            else
+                spawn_is_wall = 0;
+            attempt = MAX_ATTEMPTS; // Force the while cycle to end
         #endif
 
-            // Check if the "randomly" computed position coincides with the position of a wall
+        #if INIT_MODE != 4 // If the initial position in randomly-generated, check if there is a wall in that position
             if (is_wall(int2(int(x), int(y)), size))
                 spawn_is_wall++;
             else
                 spawn_is_wall = 0;
 
-            // Initial angle
             float2 initial_direction = normalize(center - float2(x, y));
             angle = atan2(initial_direction.y, initial_direction.x);
+        #endif
+
+            attempt++;
         }
+    }
+    if (species < 0.0)
+    {
+        g_agent_data[id * N_PARAMS_PER_AGENT + 0] = -1;
+        g_agent_data[id * N_PARAMS_PER_AGENT + 1] = -1;
+        g_agent_data[id * N_PARAMS_PER_AGENT + 2] = angle;
+        g_agent_data[id * N_PARAMS_PER_AGENT + 3] = species;
+        return;
     }
 
     uint species_index = uint(species);
@@ -361,7 +389,6 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     angle += (steering * g_params.turn_speed + random_turn) * g_delta_time;
     float2 direction = float2(cos(angle), sin(angle));
 
-    
     float2 step = direction * g_params.agent_speed * g_delta_time;
     float2 old_position = position;
     float2 new_position = position + step;
@@ -392,36 +419,9 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
     if (blocked_x || blocked_y)
         angle = atan2(direction.y, direction.x);
     
-
-#if RIGID_WALLS == 1
-    if (position.x < 0.0)
-    {
-        position.x = 0.0;
-        direction.x = -direction.x;
-    }
-    else if (position.x >= float(size.x))
-    {
-        position.x = float(size.x) - 1.0;
-        direction.x = -direction.x;
-    }
-
-    if (position.y < 0.0)
-    {
-        position.y = 0.0;
-        direction.y = -direction.y;
-    }
-    else if (position.y >= float(size.y))
-    {
-        position.y = float(size.y) - 1.0;
-        direction.y = -direction.y;
-    }
-
-    angle = atan2(direction.y, direction.x);
-#else
     // Wrap around
     position.x = fmod(position.x + float(size.x), float(size.x));
     position.y = fmod(position.y + float(size.y), float(size.y));
-#endif
 
     // Write the new information in the agent buffer
     g_agent_data[id * N_PARAMS_PER_AGENT + 0] = position.x;
@@ -450,9 +450,13 @@ void update_agents(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     if (g_frame == 0u) // Only the first frame
     {
-        // Assign species uniformly
-        uint species_seed = id * 256123u;
-        species = floor(random_float_01(species_seed) * float(SPECIES_COUNT));
+        #if INIT_MODE == 4
+        species = g_spawn_points[id * N_PARAMS_PER_AGENT + 3];
+        #else
+            // Assign species uniformly
+            uint species_seed = id * 256123u;
+            species = floor(random_float_01(species_seed) * float(SPECIES_COUNT));
+        #endif
     }
     else
         species = g_agent_data[id * N_PARAMS_PER_AGENT + 3]; // Fetch species from agent vector

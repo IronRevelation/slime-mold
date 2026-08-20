@@ -36,7 +36,7 @@ def slider(
 
 @dataclass
 class SimulationParameters:
-    agent_count: int = slider(50000, "Agent Count", 256, 100000, "%d", requires_reset=True)
+    agent_count: int = slider(50000, "Agent Count", 256, 1000000, "%d", requires_reset=True)
     agent_speed: float = slider(80.0, "Agent Speed", 10.0, 150.0, "%.1f")
     sensor_angle: float = slider(0.95, "Sensor Angle", 0.05, 1.2, "%.2f")
     sensor_distance: float = slider(15.0, "Sensor Distance", 2.0, 100.0, "%.1f")
@@ -45,13 +45,24 @@ class SimulationParameters:
     deposit_amount: float = slider(20.0, "Deposit Amount", 1, 20.0, "%.1f")
     food_strength: float = slider(10.0, "Food Strength", 0.0, 100.0, "%.1f")
     repellent_strength: float = slider(10.0, "Repellent Strength", 0.0, 100.0, "%.1f")
-    decay_rate: float = slider(0.95, "Decay Rate", 0.80, 0.999, "%.3f")
-    diffuse_rate: float = slider(0.6, "Diffuse Rate", 0.0, 1.0, "%.2f")
+    decay_rate: float = slider(0.9, "Decay Rate", 0.7, 0.999, "%.3f")
+    diffuse_rate: float = slider(0.2, "Diffuse Rate", 0.0, 1.0, "%.2f")
     species_repellent: float = slider(100.0, "Species Repellent", 0.0, 100.0, "%.2f")
 
 
-    def create_ui(self, parent: spy.ui.Widget, reset_callback: Callable[[], None]) -> None:
+
+
+
+    def create_ui(
+        self,
+        parent: spy.ui.Widget,
+        reset_callback: Callable[[], None],
+        skip_fields: set[str] = frozenset(),
+    ) -> None:
         for parameter in fields(self):
+            if parameter.name in skip_fields:
+                continue
+
             spec: SliderSpec = parameter.metadata["slider"]
 
             def update(value: int | float, name=parameter.name, slider_spec=spec) -> None:

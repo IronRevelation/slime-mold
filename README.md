@@ -12,7 +12,6 @@ shader passes:
 ## Compile-time configurable parameters
 In ```slime_molg.slang``` it is possible to set the following constants to change the agents behavior during the simulation:
 * ```SPECIES_COUNT```: The number of species initialized. IMPORTANT: this parameter must be changed accordingly also in ```main.py```.
-* ```RIGID_WALLS```: If 1, agents bounces back when hitting the border of the frame. Otherwise, a wrap around is performed and the agent hitting the right/bottom side of the window will appear at left/top side in the next frame.
 * ```INIT_MODE```: Defines the initial location of the species.
   * If '1', every agent is initialized in a ''almost-random'' position within the whole image.
   * If '2', every agent is initialized in a ''almost-random'' position in a circle on the center of the window.

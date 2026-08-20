@@ -8,10 +8,10 @@ It returns thw 'walls' matrix, whose values can be easily interpreted as follows
     0.0 = wall not present
 '''
 
-def create_walls(height, width, thickness=8):
-    wall_thickness = 8    
+def create_walls(height, width, thickness):
     walls = np.zeros((height, width), dtype=np.float32)
 
+    '''
     # Horizontal wall in the middle of the frame
     center_y = height // 2
     half_thickness = thickness // 2
@@ -20,4 +20,15 @@ def create_walls(height, width, thickness=8):
     # Verical wall in the middle of the frame
     center_x = width // 2
     walls[:, center_x - half_thickness : center_x + half_thickness] = 1.0
+    '''
+
+    walls[:,0:0+thickness] = 1
+    walls[:,-1-thickness:] = 1
+
+    walls[0:0+thickness,:] = 1
+    walls[-1-thickness:,:] = 1
+
+    walls[height//2-thickness:height//2+thickness,:] = 1
+    walls[:,width//2-thickness:width//2+thickness] = 1
+
     return walls
