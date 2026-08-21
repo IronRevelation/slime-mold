@@ -263,9 +263,6 @@ class App:
         delta_time: float,
     ) -> None:
         shader_parameters = self.parameters.shader_values()
-        # Invariato: i nomi ("g_trail_a", "g_trail_b") restano gli stessi,
-        # slangpy passa semplicemente l'oggetto texture (ora array) allo
-        # stesso identico modo con cui passava la texture 2D prima.
         common_vars = {
             "g_params": shader_parameters,
             "g_frame": self.simulation_frame,

@@ -401,18 +401,12 @@ void update_agent(RWTexture2DArray<float> trail, uint id, uint2 size, float spec
 
     // If an agent hits a wall, invert the direction component that caused the collision
     if (blocked_x)
-    {
         direction.x = -direction.x;
-        position.x = position.x;
-    }
     else
         position.x = new_position.x;
 
     if (blocked_y)
-    {
         direction.y = -direction.y;
-        position.y = old_position.y;
-    }
     else
         position.y = new_position.y;
 
